@@ -91,7 +91,7 @@ def _solve2(df_users_data: pd.DataFrame):
     print("-" * 50)
 
 
-    # E2-1: 유저별 시간순 정렬 앞 80%를 train으로 두고 유저별 평균을 빼는 중심화 함수
+    # E2-1: 유저별 시간순 정렬 앞 80%를 train으로 두고 유저별 평균을 빼는 중심화 함수 및 min-max 정규화
     df_sorted = df_users_data.sort_values(["user", "ts"]).copy()
     df_sorted["user_rank"] = df_sorted.groupby("user").cumcount()
     df_sorted["user_total"] = df_sorted.groupby("user")["item"].transform("count")
@@ -99,19 +99,33 @@ def _solve2(df_users_data: pd.DataFrame):
 
     train_df = df_sorted[df_sorted["is_train"]].copy()
 
-    # 중심화 함수 적용
+    # 유저별 중심화 함수 적용 (rating - user_mean)
     user_means = train_df.groupby("user")["rating"].transform("mean")
     train_df["user_mean"] = user_means
     train_df["centered_rating"] = train_df["rating"] - user_means
 
+    # 유저별 Min-Max 정규화 (Min-Max Scaling: (rating - min) / (max - min))
+    user_mins = train_df.groupby("user")["rating"].transform("min")
+    user_maxs = train_df.groupby("user")["rating"].transform("max")
+    user_range = user_maxs - user_mins
+    train_df["minmax_rating"] = np.where(user_range > 0, (train_df["rating"] - user_mins) / user_range, 0.5)
+
     print(f"[E2-1] Train 데이터 크기: {len(train_df):,}건 (전체의 {len(train_df)/len(df_users_data)*100:.1f}%)")
-    print("  - 중심화된 평점(centered_rating = rating - user_mean) 상위 5행:")
-    print(train_df[["user", "item", "rating", "user_mean", "centered_rating"]].head(5).round(3).to_string(index=False))
+    print("  - 중심화 및 Min-Max 정규화 평점 상위 5행:")
+    print(
+        train_df[["user", "item", "rating", "user_mean", "centered_rating", "minmax_rating"]]
+        .head(5)
+        .round(3)
+        .to_string(index=False)
+    )
 
     # E2-2: 공통 평가 영화 >= 3편 유저 쌍 중 평균 평점 차이가 가장 큰 쌍 ('후한 민지 / 짠돌이 서준')
-    user_avg = train_df.groupby("user")["rating"].mean()
-    high_users = user_avg.sort_values(ascending=False).index[:100]
-    low_users = user_avg.sort_values(ascending=True).index[:100]
+    # 유저별 통계 (min, max, mean)
+    user_stats_summary = train_df.groupby("user")["rating"].agg(["mean", "min", "max", "count"])
+    valid_range_users = user_stats_summary[user_stats_summary["max"] > user_stats_summary["min"]].index
+
+    high_users = user_stats_summary.loc[valid_range_users, "mean"].sort_values(ascending=False).index[:150]
+    low_users = user_stats_summary.loc[valid_range_users, "mean"].sort_values(ascending=True).index[:150]
 
     # 유저별 영화 set
     train_user_movies = train_df.groupby("user")["item"].apply(set).to_dict()
@@ -126,41 +140,56 @@ def _solve2(df_users_data: pd.DataFrame):
             m_low = train_user_movies.get(u_low, set())
             common_m = m_high & m_low
             if len(common_m) >= 3:
-                diff = user_avg[u_high] - user_avg[u_low]
+                diff = user_stats_summary.loc[u_high, "mean"] - user_stats_summary.loc[u_low, "mean"]
                 if diff > max_diff:
                     max_diff = diff
                     best_pair = (u_high, u_low)
                     common_movies_found = common_m
 
     u_generous, u_strict = best_pair
-    print(f"\n[E2-2] 공통 영화 3편 이상 유저 쌍 중 평균 차이가 가장 큰 쌍:")
-    print(f"  - 후한 유저 (User {u_generous}): 평균 {user_avg[u_generous]:.2f}점")
-    print(f"  - 짠돌이 유저 (User {u_strict}): 평균 {user_avg[u_strict]:.2f}점 (평균 차이: {max_diff:.2f}점)")
+    print(f"\n[E2-2] 공통 영화 3편 이상 유저 쌍 중 평균 차이가 가장 큰 쌍 (Min-Max 정규화 비교 대상):")
+    print(
+        f"  - 후한 유저 (User {u_generous}): 평균 {user_stats_summary.loc[u_generous, 'mean']:.2f}점 "
+        f"(범위: {int(user_stats_summary.loc[u_generous, 'min'])}~{int(user_stats_summary.loc[u_generous, 'max'])}점)"
+    )
+    print(
+        f"  - 짠돌이 유저 (User {u_strict}): 평균 {user_stats_summary.loc[u_strict, 'mean']:.2f}점 "
+        f"(범위: {int(user_stats_summary.loc[u_strict, 'min'])}~{int(user_stats_summary.loc[u_strict, 'max'])}점)"
+    )
+    print(f"  - 두 유저의 평균 평점 차이: {max_diff:.2f}점")
 
     # 영화 제목 맵
     movie_title_map = df_users_data.drop_duplicates(subset=["item"]).set_index("item")["title"].to_dict()
 
     pair_rows = []
     for m in common_movies_found:
-        r_gen = train_df[(train_df["user"] == u_generous) & (train_df["item"] == m)]["rating"].values[0]
-        c_gen = train_df[(train_df["user"] == u_generous) & (train_df["item"] == m)]["centered_rating"].values[0]
+        gen_sub = train_df[(train_df["user"] == u_generous) & (train_df["item"] == m)]
+        str_sub = train_df[(train_df["user"] == u_strict) & (train_df["item"] == m)]
 
-        r_str = train_df[(train_df["user"] == u_strict) & (train_df["item"] == m)]["rating"].values[0]
-        c_str = train_df[(train_df["user"] == u_strict) & (train_df["item"] == m)]["centered_rating"].values[0]
+        r_gen = gen_sub["rating"].values[0]
+        mm_gen = gen_sub["minmax_rating"].values[0]
+        c_gen = gen_sub["centered_rating"].values[0]
+
+        r_str = str_sub["rating"].values[0]
+        mm_str = str_sub["minmax_rating"].values[0]
+        c_str = str_sub["centered_rating"].values[0]
 
         pair_rows.append(
             {
                 "MovieID": m,
                 "영화 제목": movie_title_map.get(m, f"Movie {m}"),
-                "후한 유저 원점수": r_gen,
-                "후한 유저 중심화점수": round(c_gen, 2),
-                "짠돌이 유저 원점수": r_str,
-                "짠돌이 유저 중심화점수": round(c_str, 2),
+                "후한유저 원점수": r_gen,
+                "후한유저 Min-Max": round(mm_gen, 2),
+                "짠돌이유저 원점수": r_str,
+                "짠돌이유저 Min-Max": round(mm_str, 2),
+                "후한유저 중심화": round(c_gen, 2),
+                "짠돌이유저 중심화": round(c_str, 2),
             }
         )
 
-    print("\n강의의 '후한 민지 / 짠돌이 서준' 비교 표:")
+    print("\n강의의 '후한 민지 / 짠돌이 서준' Min-Max 보정 및 평점 비교 표:")
     print(pd.DataFrame(pair_rows).to_string(index=False))
+
 
     # E2-3: 축소 보정 함수 (평가 수가 적은 유저의 평균을 전체 평균으로 당김)
     global_mean = float(train_df["rating"].mean())

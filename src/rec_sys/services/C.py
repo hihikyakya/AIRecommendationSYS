@@ -13,35 +13,42 @@ def _solve1(df_items_metadata: pd.DataFrame):
     # 영화 메타데이터 고유 행 추출
     df_movies = df_items_metadata[["item", "title", "genres"]].drop_duplicates(subset=["item"]).copy()
 
-    # C1-1: 영화 x 장르의 0/1 표 변환 (pass)
+    # C1-1: 영화 x 장르의 0/1 표 변환
     df_genres_dummy = df_movies["genres"].str.get_dummies(sep="|")
     df_product_movie_genres = pd.concat([df_movies[["item", "title"]], df_genres_dummy], axis=1)
 
     print(f"[C1-1] 영화 × 장르 0/1 행렬 크기: {df_genres_dummy.shape} (영화 수: {df_genres_dummy.shape[0]}, 장르 수: {df_genres_dummy.shape[1]})")
 
-    # 장르별 영화 수
+    # 장르별 영화 수 분포 (Index 값 '자체'가 장르 이름 문자열인 범주형 데이터프레임)
     genre_counts = df_genres_dummy.sum(axis=0).sort_values(ascending=False)
-    genre_counts.index.name = "장르 이름"
-    genre_df = pd.DataFrame(
-        {"영화 수": genre_counts, "전체 대비 비율(%)": (genre_counts / len(df_movies)) * 100}
+    genre_distribution_df = pd.DataFrame(
+        {
+            "영화 수": genre_counts.values,
+            "전체 대비 비율(%)": (genre_counts.values / len(df_movies)) * 100,
+        },
+        index=genre_counts.index,  # index 값 자체가 'Drama', 'Comedy', 'Action' 등의 장르 문자
     )
-    genre_df.index.name = "장르 이름"
-    print("\n장르별 영화 수 및 비율:")
-    print(genre_df.to_string())
+    print("\n장르별 영화 수 분포 (Index = 범주형 장르 문자):")
+    print(genre_distribution_df.round(2).to_string())
 
-    # 영화당 장르 수 분포
+    # 가로축(X축)에 장르 문자를 범주형 데이터로 살려 막대그래프 시각화 및 저장
+    draw_bar_chart(
+        genre_counts,
+        title="C1-1 Genre Distribution of Movies",
+        xlabel="Genre (Categorical)",
+        ylabel="Number of Movies",
+        color="mediumpurple",
+    )
+
+    # 영화당 장르 수 기술통계 및 요약
     genres_per_movie = df_genres_dummy.sum(axis=1)
-    print("\n영화당 장르 수 분포 요약:")
+    print("\n영화당 보유 장르 수 기술통계 요약:")
     print(genres_per_movie.describe().to_string())
-
-    genre_dist = genres_per_movie.value_counts().sort_index().to_frame(name="영화 수")
-    genre_dist.index.name = "보유 장르 개수"
-    print("\n영화당 장르 수 빈도표:")
-    print(genre_dist.to_string())
 
     # 고유 장르 조합 수
     unique_genre_combos = df_movies["genres"].nunique()
     print(f"\n고유 장르 조합 수: {unique_genre_combos}개")
+
 
     # C1-2: TF-IDF 행렬 계산 (제목 단어 + 장르 + 개봉연도)
     # 제목에서 연도 추출 및 제목 단어 분리

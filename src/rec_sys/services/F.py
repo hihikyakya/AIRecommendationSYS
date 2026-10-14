@@ -161,26 +161,23 @@ def _solve2(df_users_data: pd.DataFrame, loo_train: pd.DataFrame, loo_test: pd.D
     chance_level_mean = np.mean(user_chance_probabilities)
     high_rating_user_ratio = np.mean(has_high_rating_target)
 
-    # 몬테카를로 시뮬레이션 검증 (10회 평균) (너무 나아가긴했지만 뭐 나쁘지는 않다.)
+    # 몬테카를로 시뮬레이션 검증 (30회 반복 시뮬레이션 평균)
     np.random.seed(42)
-    sim_hits = []
-    sample_users = list(test_rows.index)
+    n_trials = 30
+    trial_means = []
 
-    for user_id in sample_users:
-        test_item = test_rows.loc[user_id, "item"]
-        test_rating = test_rows.loc[user_id, "rating"]
-        if test_rating < 4:
-            sim_hits.append(0)
-            continue
-        rated_in_train = train_movies_by_user.get(user_id, set())
-        candidates = list(all_movies - rated_in_train)
-        if len(candidates) < k_recommend:
-            sim_hits.append(int(test_item in candidates))
-            continue
-        rec = np.random.choice(candidates, size=k_recommend, replace=False)
-        sim_hits.append(int(test_item in rec))
+    # 숨긴 정답(★4 이상)이 유효한 유저들의 후보 수
+    valid_target_cand_counts = [
+        len(all_movies - train_movies_by_user.get(u, set()))
+        for u in test_rows.index
+        if test_rows.loc[u, "rating"] >= 4 and (test_rows.loc[u, "item"] in (all_movies - train_movies_by_user.get(u, set())))
+    ]
 
-    sim_chance_level = np.mean(sim_hits)
+    for _ in range(n_trials):
+        trial_hits = sum(np.random.rand() < (k_recommend / n_c) for n_c in valid_target_cand_counts)
+        trial_means.append(trial_hits / len(test_rows))
+
+    sim_chance_level = float(np.mean(trial_means))
 
     f2_df = pd.DataFrame(
         {
@@ -188,7 +185,7 @@ def _solve2(df_users_data: pd.DataFrame, loo_train: pd.DataFrame, loo_test: pd.D
                 "평가 대상 총 유저 수",
                 "숨긴 정답(★4 이상)을 보유한 유저 비율(%)",
                 "이론적 기대 성적 (Chance Level)",
-                "시뮬레이션 실측 성적 (Chance Level)",
+                f"몬테카를로 시뮬레이션 실측 성적 ({n_trials}회 평균)",
             ],
             "값": [
                 f"{len(test_rows)}명",
@@ -200,6 +197,7 @@ def _solve2(df_users_data: pd.DataFrame, loo_train: pd.DataFrame, loo_test: pd.D
     )
     print("[F2] 무작위 10편 추천 시 Chance Level (Hit@10 유저 비율):")
     print(f2_df.to_string(index=False))
+
 
 
 def solve(df_users_data: pd.DataFrame):

@@ -66,36 +66,27 @@ def _solve2(df_users_data: pd.DataFrame):
     print(" [B2] Implicit 안경과 Negative Sampling")
     print("-" * 50)
 
-    # 1. 평가를 '평가함 = 1', '평가안함 = 0'으로 이진화한 관점 (failed. do again)
-    # 관측된 데이터(평가함=1) 중 원래 평점이 1점, 2점, 그리고 1~2점이었던 칸의 비율 계산
+    # 1. 평가를 '평가함 = 1 (구간 (0, 5])', '평가안함 = 0'으로 이진화한 관점
+    # boolean column을 생성하고 group by 후 count로 나누어 원래 2였던 칸의 비율 계산
     df_eval = df_users_data[["user", "item", "rating", "ts"]].copy()
-    df_eval["is_observed"] = 1  # 관측된 상호작용 (평가함 = 1)
-    df_eval["is_rating_1"] = (df_eval["rating"] == 1).astype(int)
-    df_eval["is_rating_2"] = (df_eval["rating"] == 2).astype(int)
-    df_eval["is_rating_1_or_2"] = (df_eval["rating"] <= 2).astype(int)
+    df_eval["is_rated"] = (df_eval["rating"] > 0).astype(int)  # 구간 (0, 5]: 평가함(1), 0점: 평가안함(0)
+    df_eval["is_rating_2"] = (df_eval["rating"] == 2).astype(int)  # 원래 2였던 칸
+    df_eval["is_rating_1_to_2"] = ((df_eval["rating"] >= 1) & (df_eval["rating"] <= 2)).astype(int)
 
-    total_observed = len(df_eval)
-    ratio_1 = df_eval["is_rating_1"].sum() / total_observed
-    ratio_2 = df_eval["is_rating_2"].sum() / total_observed
-    ratio_1_or_2 = df_eval["is_rating_1_or_2"].sum() / total_observed
-
-    b2_1_df = pd.DataFrame(
-        {
-            "구분": [
-                "평가함(1) 중 원래 1점인 칸",
-                "평가함(1) 중 원래 2점인 칸",
-                "평가함(1) 중 원래 1~2점(부정적 평가)인 칸",
-            ],
-            "칸 수": [
-                df_eval["is_rating_1"].sum(),
-                df_eval["is_rating_2"].sum(),
-                df_eval["is_rating_1_or_2"].sum(),
-            ],
-            "비율(%)": [ratio_1 * 100, ratio_2 * 100, ratio_1_or_2 * 100],
-        }
+    # groupby('is_rated')를 활용한 칸 수 집계 및 비율 계산
+    b2_1_summary = df_eval.groupby("is_rated").agg(
+        총_평가수=("rating", "count"),
+        원래_2점_칸수=("is_rating_2", "sum"),
+        원래_1_2점_칸수=("is_rating_1_to_2", "sum"),
     )
-    print("[B2-1] 관측된 칸(1) 중 원래 평점별 칸 수 및 비율 (0=평가안함, 1=평가함):")
-    print(b2_1_df.to_string(index=False))
+    b2_1_summary["원래_2점_비율(%)"] = (b2_1_summary["원래_2점_칸수"] / b2_1_summary["총_평가수"]) * 100
+    b2_1_summary["원래_1_2점_비율(%)"] = (b2_1_summary["원래_1_2점_칸수"] / b2_1_summary["총_평가수"]) * 100
+
+    print("[B2-1] 평가함(1) 중 원래 2였던 칸(및 1~2였던 칸)의 비율 표 (0점=평가안함, (0, 5]=평가함):")
+    print(b2_1_summary.to_string())
+    print(f"  -> 평가함(1) 중 원래 '2점'이었던 칸의 비율: {b2_1_summary['원래_2점_비율(%)'].iloc[0]:.2f}%")
+    print(f"  -> 평가함(1) 중 원래 '1~2점'이었던 칸의 비율: {b2_1_summary['원래_1_2점_비율(%)'].iloc[0]:.2f}%")
+
 
     # 2. 각 유저의 평가를 시간순 앞 80%(과거) / 뒤 20%(미래) 분할
     df_sorted = df_users_data.sort_values(["user", "ts"]).copy()
