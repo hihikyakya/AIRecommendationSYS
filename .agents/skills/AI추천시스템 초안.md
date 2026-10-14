@@ -48,7 +48,7 @@ C2. 컨텍스트.
 	(b) 'Horror', 'Children's', 'Drama'의 시간대별 비중 표를 출력할 것.
 
 C1-1: 영화를 rows로 하고 장르 columns로 쭉 나열후 0/1로 표시하기
-- 영화당 장르 수 분포에서 index값 "자체"를 장르 이름으로 설정 부탁
+- 영화당 장르 수 분포에서 index값 "자체"를 장르 이름으로 설정 부탁 (pass)
 C1-2: TF-IDF를 만들기 위한 description 컬럼을 생성하면서 그 컬럼에 $단어 + $장르 + $개봉연도 넣기.  => 이 description columns로 sklearn의 TF_IDF 사용해서 임의 영화 랜덤으로 한편 뽑아서 그 영화에 대하여 관련있는 description값 상위 5개 출력하기
 C2: 시간대, 요일을 timestamp에 대하여 datetime 모듈을 이용하여 잘 parse하여 각각 column을 잘 만들면 될 것 같다. / (a),(b) - 말그대로 잘 집계해서 표나 barplot 잘 출력하면됨.
 - 시간대는 int로 찍어야 .0이 표시가 안되어서 좀 더 깔끔함! (pass)
