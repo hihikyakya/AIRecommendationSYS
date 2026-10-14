@@ -91,7 +91,7 @@ def _solve2(df_users_data: pd.DataFrame):
     print("-" * 50)
 
 
-    # E2-1: 유저별 시간순 정렬 앞 80%를 train으로 두고 유저별 평균을 빼는 중심화 함수 및 min-max 정규화
+    # E2-1: 유저별 시간순 정렬 앞 80%를 train으로 두고 유저별 평균을 빼는 중심화 함수
     df_sorted = df_users_data.sort_values(["user", "ts"]).copy()
     df_sorted["user_rank"] = df_sorted.groupby("user").cumcount()
     df_sorted["user_total"] = df_sorted.groupby("user")["item"].transform("count")
@@ -99,31 +99,86 @@ def _solve2(df_users_data: pd.DataFrame):
 
     train_df = df_sorted[df_sorted["is_train"]].copy()
 
-    # 유저별 중심화 함수 적용 (rating - user_mean)
+    # 유저별 중심화 함수 적용 (centered_rating = rating - user_mean)
     user_means = train_df.groupby("user")["rating"].transform("mean")
     train_df["user_mean"] = user_means
     train_df["centered_rating"] = train_df["rating"] - user_means
 
-    # 유저별 Min-Max 정규화 (Min-Max Scaling: (rating - min) / (max - min))
-    user_mins = train_df.groupby("user")["rating"].transform("min")
-    user_maxs = train_df.groupby("user")["rating"].transform("max")
-    user_range = user_maxs - user_mins
-    train_df["minmax_rating"] = np.where(user_range > 0, (train_df["rating"] - user_mins) / user_range, 0.5)
-
     print(f"[E2-1] Train 데이터 크기: {len(train_df):,}건 (전체의 {len(train_df)/len(df_users_data)*100:.1f}%)")
-    print("  - 중심화 및 Min-Max 정규화 평점 상위 5행:")
+    print("  - 유저 평점 중심화 결과 상위 5행:")
     print(
-        train_df[["user", "item", "rating", "user_mean", "centered_rating", "minmax_rating"]]
+        train_df[["user", "item", "rating", "user_mean", "centered_rating"]]
         .head(5)
         .round(3)
         .to_string(index=False)
     )
 
-    # E2-2: 공통 평가 영화 >= 3편 유저 쌍 중 평균 평점 차이가 가장 큰 쌍 ('후한 민지 / 짠돌이 서준')
-    # 이사이 채우고..
-    normalized_generous=(generous.max()-generous)/(generous-generous.min())
-    # 나머지 계속..
-    # 출력도 하고..
+    # E2-2: 공통 평가 영화 >= 3편 유저 쌍 중 평균 평점 차이가 가장 큰 쌍 ('후한 민지 / 짠돌이 서준' Min-Max 보정)
+    user_avg = train_df.groupby("user")["rating"].mean()
+    user_movies = train_df.groupby("user")["item"].apply(set).to_dict()
+
+    high_users = user_avg.sort_values(ascending=False).index[:300]
+    low_users = user_avg.sort_values(ascending=True).index[:300]
+
+    best_pair = None
+    max_diff = -1.0
+    common_movies_found = set()
+
+    for u_h in high_users:
+        m_h = user_movies.get(u_h, set())
+        for u_l in low_users:
+            diff = user_avg[u_h] - user_avg[u_l]
+            if diff <= max_diff:
+                break
+            common = m_h & user_movies.get(u_l, set())
+            if len(common) >= 3:
+                max_diff = diff
+                best_pair = (u_h, u_l)
+                common_movies_found = common
+
+    u_generous, u_strict = best_pair
+    print(f"\n[E2-2] 공통 영화 3편 이상 유저 쌍 중 평균 차이가 가장 큰 쌍:")
+    print(f"  - 후한 유저 (User {u_generous}): 평균 {user_avg[u_generous]:.2f}점")
+    print(f"  - 짠돌이 유저 (User {u_strict}): 평균 {user_avg[u_strict]:.2f}점 (평균 평점 차이: {max_diff:.2f}점)")
+
+    # 공통 영화들에 대한 후한 유저(generous)와 짠돌이 유저(strict)의 평점 Series 추출
+    generous = (
+        train_df[(train_df["user"] == u_generous) & (train_df["item"].isin(common_movies_found))]
+        .drop_duplicates(subset=["item"])
+        .set_index("item")["rating"]
+    )
+    strict = (
+        train_df[(train_df["user"] == u_strict) & (train_df["item"].isin(common_movies_found))]
+        .drop_duplicates(subset=["item"])
+        .set_index("item")["rating"]
+    )
+
+    # Min-Max 정규화 계산 (0 나눗셈 방지)
+    gen_denom = generous.max() - generous.min()
+    normalized_generous = (generous - generous.min()) / gen_denom if gen_denom > 0 else generous * 0.0
+
+    str_denom = strict.max() - strict.min()
+    normalized_strict = (strict - strict.min()) / str_denom if str_denom > 0 else strict * 0.0
+
+    # 영화 제목 매핑
+    movie_title_map = df_users_data.drop_duplicates(subset=["item"]).set_index("item")["title"].to_dict()
+
+    pair_comparison_df = pd.DataFrame(
+        {
+            "영화 제목": [movie_title_map.get(m, f"Movie {m}") for m in generous.index],
+            "후한유저 원점수": generous.values,
+            "후한유저 Min-Max": normalized_generous.values.round(2),
+            "짠돌이유저 원점수": strict.values,
+            "짠돌이유저 Min-Max": normalized_strict.values.round(2),
+        },
+        index=generous.index,
+    )
+    pair_comparison_df.index.name = "MovieID"
+
+    print("\n강의의 '후한 민지 / 짠돌이 서준' 평점 비교 및 Min-Max 보정 표:")
+    print(pair_comparison_df.to_string())
+
+
 
 
     # E2-3: 축소 보정 함수 (평가 수가 적은 유저의 평균을 전체 평균으로 당김)
