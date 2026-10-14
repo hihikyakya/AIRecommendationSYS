@@ -7,15 +7,17 @@ def main(dataset:str|Path):
     df_users_data, df_items_metadata=A.solve(dataset)
     B.solve(df_users_data)
     C.solve(df_items_metadata)
-    df_product_user_movie = D.solve(df_users_data) #argument modify please (also internal functions).
-    E.solve(df_users_data,df_product_user_movie) #argument modify please (also internal functions).
-    F.solve() #argument modify please (also internal functions).
+    df_product_user_movie = D.solve(df_users_data)
+    E.solve(df_users_data, df_product_user_movie)
+    F.solve(df_users_data)
 
 
 
 if __name__=="__main__":
-    # main(dataset="./resources/dataset/ml-1m")
-    df_users_data, df_items_metadata=A.solve(dataset="./resources/dataset/ml-1m")
+    main(dataset="./resources/dataset/ml-1m")
+
+    # ------- for debuggings ---------
+    # df_users_data, df_items_metadata=A.solve(dataset="./resources/dataset/ml-1m")
 
     # B.solve(df_users_data)
-    C.solve(df_items_metadata)
+    # C.solve(df_items_metadata)

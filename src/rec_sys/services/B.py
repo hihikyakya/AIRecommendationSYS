@@ -26,21 +26,27 @@ def _solve1(df_users_data: pd.DataFrame):
     )
 
     # 2. 유저별 평균 평점 히스토그램 및 극단 유저 비율
+    # 가로줄(행 인덱스)에 user 이름(ID)을 명확하게 표시
     df_users_rate = df_users_data.groupby("user")["rating"].mean()
+    df_users_rate.name = "평균평점"
+    df_users_rate.index.name = "user_id"
+
     high_user_ratio = (df_users_rate >= 4.2).mean()
     low_user_ratio = (df_users_rate <= 3.0).mean()
 
     print("\n[B1-2] 유저별 평균 평점 극단 유저 비율:")
     print(f"  - 평균 평점 4.2 이상 유저 비율: {high_user_ratio * 100:.2f}%")
     print(f"  - 평균 평점 3.0 이하 유저 비율: {low_user_ratio * 100:.2f}%")
+    print("\n  [유저별 평균 평점 샘플 (가로줄: user_id)]:")
+    print(df_users_rate.head(10).to_frame().to_string())
 
     draw_histogram(
         df_users_rate,
         title="B1-2 User Mean Rating Distribution",
-        xlabel="User Mean Rating",
+        xlabel="User Mean Rating (Grouped by User ID)",
         ylabel="User Count",
         bins=25,
-    ) #modify required
+    )
 
     # 3. 영화를 평가 수 기준 5개 구간(분위)으로 나누고 구간별 영화 수와 평균 평점 표 출력
     item_stats = df_users_data.groupby("item")["rating"].agg(eval_count="count", avg_rating="mean")
@@ -62,10 +68,36 @@ def _solve2(df_users_data: pd.DataFrame):
     print(" [B2] Implicit 안경과 Negative Sampling")
     print("-" * 50)
 
-    # 1. 평가를 '평가함 = 1'로 이진화했을 때 원래 1–2였던 칸의 비율
-    # 전체 관측된 칸(평가함=1) 중 원래 평점이 1 또는 2였던 칸의 비율
-    low_rating_ratio = (df_users_data["rating"] <= 2).mean() #modify required
-    print(f"[B2-1] 관측된 평가(1) 중 원래 평점이 1-2점(부정적 평가)이었던 칸의 비율: {low_rating_ratio * 100:.2f}%") #modify required
+    # 1. 평가를 '평가함 = 1', '평가안함 = 0'으로 이진화한 관점
+    # 관측된 데이터(평가함=1) 중 원래 평점이 1점, 2점, 그리고 1~2점이었던 칸의 비율 계산
+    df_eval = df_users_data[["user", "item", "rating", "ts"]].copy()
+    df_eval["is_observed"] = 1  # 관측된 상호작용 (평가함 = 1)
+    df_eval["is_rating_1"] = (df_eval["rating"] == 1).astype(int)
+    df_eval["is_rating_2"] = (df_eval["rating"] == 2).astype(int)
+    df_eval["is_rating_1_or_2"] = (df_eval["rating"] <= 2).astype(int)
+
+    total_observed = len(df_eval)
+    ratio_1 = df_eval["is_rating_1"].sum() / total_observed
+    ratio_2 = df_eval["is_rating_2"].sum() / total_observed
+    ratio_1_or_2 = df_eval["is_rating_1_or_2"].sum() / total_observed
+
+    b2_1_df = pd.DataFrame(
+        {
+            "구분": [
+                "평가함(1) 중 원래 1점인 칸",
+                "평가함(1) 중 원래 2점인 칸",
+                "평가함(1) 중 원래 1~2점(부정적 평가)인 칸",
+            ],
+            "칸 수": [
+                df_eval["is_rating_1"].sum(),
+                df_eval["is_rating_2"].sum(),
+                df_eval["is_rating_1_or_2"].sum(),
+            ],
+            "비율(%)": [ratio_1 * 100, ratio_2 * 100, ratio_1_or_2 * 100],
+        }
+    )
+    print("[B2-1] 관측된 칸(1) 중 원래 평점별 칸 수 및 비율 (0=평가안함, 1=평가함):")
+    print(b2_1_df.to_string(index=False))
 
     # 2. 각 유저의 평가를 시간순 앞 80%(과거) / 뒤 20%(미래) 분할
     df_sorted = df_users_data.sort_values(["user", "ts"]).copy()
@@ -87,6 +119,7 @@ def _solve2(df_users_data: pd.DataFrame):
     user_future = future_df.groupby("user")["item"].apply(set).to_dict()
 
     # 과거 양성 1개당 음성 4개 샘플링 (균등 & 인기 기반)
+    # 양성: +1, 평가안함(미관측): 0, 음성 샘플링: -1
     np.random.seed(42)
 
     unif_eval_counts = []
@@ -95,10 +128,10 @@ def _solve2(df_users_data: pd.DataFrame):
     pop_eval_counts = []
     pop_future_eval_hits = []
 
-    print("[B2-2 & B2-3] 전체 유저 대상 음성 샘플링(과거 양성 1개당 4개) 진행 중...")
+    print("\n[B2-2 & B2-3] 전체 유저 대상 음성 샘플링(과거 양성 1개당 음성 4개) 진행 중...")
     for user_id, past_items in user_past.items():
         future_items = user_future.get(user_id, set())
-        num_neg = len(past_items) * 4 
+        num_neg = len(past_items) * 4
         if num_neg == 0:
             continue
 
@@ -130,6 +163,7 @@ def _solve2(df_users_data: pd.DataFrame):
     )
     print("\n[B2-3] 균등 샘플링 vs 인기 기반 샘플링 비교 결과:")
     print(res_df.to_string(index=False))
+
 
 
 def solve(df_users_data: pd.DataFrame):
