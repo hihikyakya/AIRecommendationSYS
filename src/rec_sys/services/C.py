@@ -13,7 +13,7 @@ def _solve1(df_items_metadata: pd.DataFrame):
     # 영화 메타데이터 고유 행 추출
     df_movies = df_items_metadata[["item", "title", "genres"]].drop_duplicates(subset=["item"]).copy()
 
-    # C1-1: 영화 x 장르의 0/1 표 변환
+    # C1-1: 영화 x 장르의 0/1 표 변환 (pass)
     df_genres_dummy = df_movies["genres"].str.get_dummies(sep="|")
     df_product_movie_genres = pd.concat([df_movies[["item", "title"]], df_genres_dummy], axis=1)
 
@@ -121,4 +121,4 @@ def solve(df_items_metadata: pd.DataFrame):
     print(" [Part C] 행렬 바깥의 데이터")
     print("=" * 60)
     _solve1(df_items_metadata)
-    _solve2(df_items_metadata)
+    _solve2(df_items_metadata)

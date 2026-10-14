@@ -40,7 +40,7 @@ def _solve1(df_users_data: pd.DataFrame):
         xlabel="User Mean Rating",
         ylabel="User Count",
         bins=25,
-    )
+    ) #modify required
 
     # 3. 영화를 평가 수 기준 5개 구간(분위)으로 나누고 구간별 영화 수와 평균 평점 표 출력
     item_stats = df_users_data.groupby("item")["rating"].agg(eval_count="count", avg_rating="mean")
@@ -64,8 +64,8 @@ def _solve2(df_users_data: pd.DataFrame):
 
     # 1. 평가를 '평가함 = 1'로 이진화했을 때 원래 1–2였던 칸의 비율
     # 전체 관측된 칸(평가함=1) 중 원래 평점이 1 또는 2였던 칸의 비율
-    low_rating_ratio = (df_users_data["rating"] <= 2).mean()
-    print(f"[B2-1] 관측된 평가(1) 중 원래 평점이 1-2점(부정적 평가)이었던 칸의 비율: {low_rating_ratio * 100:.2f}%")
+    low_rating_ratio = (df_users_data["rating"] <= 2).mean() #modify required
+    print(f"[B2-1] 관측된 평가(1) 중 원래 평점이 1-2점(부정적 평가)이었던 칸의 비율: {low_rating_ratio * 100:.2f}%") #modify required
 
     # 2. 각 유저의 평가를 시간순 앞 80%(과거) / 뒤 20%(미래) 분할
     df_sorted = df_users_data.sort_values(["user", "ts"]).copy()
@@ -98,7 +98,7 @@ def _solve2(df_users_data: pd.DataFrame):
     print("[B2-2 & B2-3] 전체 유저 대상 음성 샘플링(과거 양성 1개당 4개) 진행 중...")
     for user_id, past_items in user_past.items():
         future_items = user_future.get(user_id, set())
-        num_neg = len(past_items) * 4
+        num_neg = len(past_items) * 4 
         if num_neg == 0:
             continue
 
@@ -137,4 +137,4 @@ def solve(df_users_data: pd.DataFrame):
     print(" [Part B] 상호작용 데이터: 두 가지 피드백")
     print("=" * 60)
     _solve1(df_users_data)
-    _solve2(df_users_data)
+    _solve2(df_users_data)

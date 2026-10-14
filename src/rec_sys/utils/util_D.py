@@ -1,4 +1,5 @@
+def get_density():
+    pass
 
-
-def gini_index():
+def get_gini_index():
     pass
