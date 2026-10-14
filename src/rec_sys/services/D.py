@@ -10,7 +10,7 @@ def _solve1():
     #TODO: D1-3
 
     #TODO: D1-4
-
+    pass
 
 
 def solve():
