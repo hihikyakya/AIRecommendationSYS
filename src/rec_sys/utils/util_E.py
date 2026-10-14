@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 
-from .util_D import get_density, get_gini_index
+from .util_DE import get_density, get_gini_index
 
 
 def k_core_filtering(df: pd.DataFrame, k: int) -> tuple[pd.DataFrame, int]:
@@ -42,4 +42,4 @@ def reduction_filtering(
         col_name = f"보정후(λ={int(lmb) if lmb.is_integer() else lmb})"
         res_df[col_name] = (n / (n + lmb)) * r_mean + (lmb / (n + lmb)) * global_mean
 
-    return res_df
+    return res_df

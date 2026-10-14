@@ -4,7 +4,8 @@ import numpy as np
 import pandas as pd
 from scipy.sparse import csr_matrix
 
-from ..utils.util_D import draw_lorenz_curve, get_density, get_gini_index
+from ..utils.util_D import draw_lorenz_curve
+from ..utils.util_DE import get_density, get_gini_index
 
 
 def solve(df_users_data: pd.DataFrame):
@@ -154,4 +155,4 @@ def solve(df_users_data: pd.DataFrame):
 
     draw_lorenz_curve(item_eval_counts, user_eval_counts, save_path=out_dir / "d1_4_lorenz_curves.png")
 
-    return df_product_user_movie
+    return df_product_user_movie

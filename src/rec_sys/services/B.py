@@ -37,8 +37,6 @@ def _solve1(df_users_data: pd.DataFrame):
     print("\n[B1-2] 유저별 평균 평점 극단 유저 비율:")
     print(f"  - 평균 평점 4.2 이상 유저 비율: {high_user_ratio * 100:.2f}%")
     print(f"  - 평균 평점 3.0 이하 유저 비율: {low_user_ratio * 100:.2f}%")
-    print("\n  [유저별 평균 평점 샘플 (가로줄: user_id)]:")
-    print(df_users_rate.head(10).to_frame().to_string())
 
     draw_histogram(
         df_users_rate,
@@ -68,7 +66,7 @@ def _solve2(df_users_data: pd.DataFrame):
     print(" [B2] Implicit 안경과 Negative Sampling")
     print("-" * 50)
 
-    # 1. 평가를 '평가함 = 1', '평가안함 = 0'으로 이진화한 관점
+    # 1. 평가를 '평가함 = 1', '평가안함 = 0'으로 이진화한 관점 (failed. do again)
     # 관측된 데이터(평가함=1) 중 원래 평점이 1점, 2점, 그리고 1~2점이었던 칸의 비율 계산
     df_eval = df_users_data[["user", "item", "rating", "ts"]].copy()
     df_eval["is_observed"] = 1  # 관측된 상호작용 (평가함 = 1)

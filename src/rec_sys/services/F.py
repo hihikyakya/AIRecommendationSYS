@@ -27,7 +27,7 @@ def _solve1(df_users_data: pd.DataFrame) -> tuple[int, pd.DataFrame, pd.DataFram
     same_day_overlap = train_user_dates & test_user_dates
 
     test_same_day_mask = test_rand.apply(lambda r: (r["user"], r["date"]) in same_day_overlap, axis=1)
-    same_day_split_ratio = test_same_day_mask.mean()
+    same_day_split_ratio = test_same_day_mask.mean() # boolean이라 mean이 비율임
 
     print("[F1-1] 랜덤 8:2 분할:")
     print(f"  - 시간 역행 누출(test 중 같은 유저의 더 늦은 평가가 train에 있는 비율): {time_travel_ratio * 100:.2f}%")
@@ -148,7 +148,7 @@ def _solve2(df_users_data: pd.DataFrame, loo_train: pd.DataFrame, loo_test: pd.D
         unrated_candidates = all_movies - rated_in_train
         n_candidates = len(unrated_candidates)
 
-        if test_rating >= 4 and (test_item in unrated_candidates):
+        if test_rating >= 4 and (test_item in unrated_candidates): # 숨긴정답
             has_high_rating_target.append(True)
             # 숨긴 정답 1편이 무작위 10편 추천에 포함될 확률 (초기하분포 / 조합)
             # P(Hit) = 1 - ((N-1) choose 10) / (N choose 10) = 10 / N
@@ -161,7 +161,7 @@ def _solve2(df_users_data: pd.DataFrame, loo_train: pd.DataFrame, loo_test: pd.D
     chance_level_mean = np.mean(user_chance_probabilities)
     high_rating_user_ratio = np.mean(has_high_rating_target)
 
-    # 몬테카를로 시뮬레이션 검증 (10회 평균)
+    # 몬테카를로 시뮬레이션 검증 (10회 평균) (너무 나아가긴했지만 뭐 나쁘지는 않다.)
     np.random.seed(42)
     sim_hits = []
     sample_users = list(test_rows.index)
@@ -207,4 +207,4 @@ def solve(df_users_data: pd.DataFrame):
     print(" [Part F] 데이터 분할: 시간을 지켜라")
     print("=" * 60)
     boundary_ts, loo_train, loo_test = _solve1(df_users_data)
-    _solve2(df_users_data, loo_train=loo_train, loo_test=loo_test)
+    _solve2(df_users_data, loo_train=loo_train, loo_test=loo_test)

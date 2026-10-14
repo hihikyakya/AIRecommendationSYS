@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from ..utils import util_E
-from ..utils.util_D import get_density, get_gini_index
+from ..utils.util_DE import get_density, get_gini_index
 
 
 def _solve1(df_users_data: pd.DataFrame):
@@ -10,7 +10,7 @@ def _solve1(df_users_data: pd.DataFrame):
     print(" [E1] 정제와 k-core 필터링")
     print("-" * 50)
 
-    # E1-1: 정제 규칙 두 가지 (중복 평가, 비정상적으로 빠른 연속 평가)
+    # E1-1: 정제 규칙 두 가지 (중복 평가, 비정상적으로 빠른 연속 평가) (pass)
     total_ratings = len(df_users_data)
     total_users = df_users_data["user"].nunique()
 
@@ -85,13 +85,11 @@ def _solve1(df_users_data: pd.DataFrame):
     print(f"\n* k=20 필터링 적용 시 제거되는 유저 수: {dropped_users_k20}명, 영화 수: {dropped_items_k20}편")
 
 
-def _solve2(df_product_user_movie: pd.DataFrame, df_users_data: pd.DataFrame | None = None):
+def _solve2(df_users_data: pd.DataFrame):
     print("\n" + "-" * 50)
     print(" [E2] 유저 중심 정렬과 축소 보정")
     print("-" * 50)
 
-    if df_users_data is None:
-        raise ValueError("df_users_data is required for time-ordered train split.")
 
     # E2-1: 유저별 시간순 정렬 앞 80%를 train으로 두고 유저별 평균을 빼는 중심화 함수
     df_sorted = df_users_data.sort_values(["user", "ts"]).copy()
@@ -182,9 +180,9 @@ def _solve2(df_product_user_movie: pd.DataFrame, df_users_data: pd.DataFrame | N
     print(shrinkage_df.round(3).to_string(index=False))
 
 
-def solve(df_users_data: pd.DataFrame, df_product_user_movie: pd.DataFrame):
+def solve(df_users_data: pd.DataFrame):
     print("\n" + "=" * 60)
     print(" [Part E] 전처리: 원료를 다듬는 공정")
     print("=" * 60)
     _solve1(df_users_data)
-    _solve2(df_product_user_movie, df_users_data=df_users_data)
+    _solve2(df_users_data=df_users_data)

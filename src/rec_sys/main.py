@@ -8,7 +8,7 @@ def main(dataset:str|Path):
     B.solve(df_users_data)
     C.solve(df_items_metadata)
     df_product_user_movie = D.solve(df_users_data)
-    E.solve(df_users_data, df_product_user_movie)
+    E.solve(df_users_data)
     F.solve(df_users_data)
 
 
